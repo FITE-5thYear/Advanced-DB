@@ -1,4 +1,4 @@
-///first
+--first
 
 CREATE OR REPLACE TRIGGER price_during_guarantee
 BEFORE 
@@ -34,8 +34,9 @@ BEGIN
 
 END;
 
-/////////////////////
-//second
+
+--------------------------------------
+--second
 
 
 create or replace TRIGGER block_updating_exist_value
@@ -56,10 +57,8 @@ BEGIN
    END IF;
 END;
 
-///////////////////////
 
-
-
+------------
 SELECT DateReturnedToCustomer
 FROM ServiceTicket
 WHERE ServiceTicket_ID =2;
@@ -73,16 +72,18 @@ UPDATE ServiceTicket
 SET DATERETURNEDTOCUSTOMER =to_date('1999/10/10','yyyy/mm/dd')
 WHERE SERVICETICKET_ID=2;
 
-/////////////////////////////
-//third
+
+--------------------------------------
+--third
 
 
 
 
 
 
-/////////////////////////////
-//fourth
+
+--------------------------------------
+--fourth
 
 CREATE TABLE SalesInvoice_Tracking
 (
@@ -140,14 +141,85 @@ BEGIN
      VALUES(:OLD.SalesInvoice_ID,:OLD.InvoiceNumber,:OLD.DateOfInvoice,:OLD.Car_ID,:OLD.Customer_ID,:OLD.SalesPerson_ID,'D');
    END IF;
 END;
-/////////////////////
+------------
 INSERT INTO SalesInvoice VALUES(10,14,to_date('2000/01/01','yyyy/mm/dd'),1,1,1);
 
 SELECT * FROM SalesInvoice_Tracking;
 
 UPDATE SalesInvoice SET CAR_ID=2 WHERE SalesInvoice _ID=9;
 SELECT * FROM SalesInvoice_Tracking;
-////////////////////////
+--------------------------------------
+--fifth
+
+CREATE TABLE TablesTracking(
+TableName VARCHAR(50),
+Action VARCHAR(50),
+ActionDate Date DEFAULT SYSDATE
+);
 
 
-/////////////////////////////////////
+CREATE OR REPLACE TRIGGER Create_Tables_Tracking
+  AFTER DROP   ON SCHEMA    
+BEGIN
+  IF (SYS.DICTIONARY_OBJ_TYPE = 'TABLE' ) THEN
+     INSERT INTO  TablesTracking(TableName, Action) VALUES(SYS.dictionary_obj_name,'CREATE Table');
+  END IF;
+END;
+
+CREATE OR REPLACE TRIGGER Drop_Tables_Tracking
+  AFTER CREATE   ON SCHEMA    
+BEGIN
+  IF (SYS.DICTIONARY_OBJ_TYPE = 'TABLE' ) THEN
+     INSERT INTO  TablesTracking(TableName, Action) VALUES(SYS.dictionary_obj_name,'DROP Table'  );
+  END IF;
+END;
+////////////////
+CREATE TABLE Visitor (
+  Visitor_ID INT NOT NULL,
+  FirstName VARCHAR(50),
+  LastName VARCHAR(50)
+);
+
+DROP TABLE Visitor;
+
+SELECT * FROM TablesTracking;
+
+
+--------------------------------------
+--sixth
+
+
+CREATE OR REPLACE FUNCTION get_car_service_hours( carID IN Car.Car_ID%TYPE, serviceID IN Service.Service_ID%TYPE)
+  RETURN INTEGER
+IS
+  sum_of_hours INTEGER; 
+BEGIN
+
+  SELECT SUM(se.HourlyRate) INTO sum_of_hours
+  FROM Car ca  
+  JOIN ServiceTicket st
+    ON ca.Car_ID = st.Car_ID
+  JOIN ServiceMachine sm
+    ON sm.ServiceTicket_ID = st.ServiceTicket_ID
+  JOIN Service se
+    ON se.Service_ID = sm.Service_ID
+  WHERE ca.Car_ID=carID AND se.Service_ID=serviceID;
+  
+  RETURN sum_of_hours;
+END;
+
+------------
+insert into ServiceTicket(ServiceTicket_ID,ServiceTicketNumber ,Car_ID ,Customer_ID ,DateReceived ,DateReturnedToCustomer ) 
+  values (3,3,1,1,to_date('2000/01/01','yyyy/mm/dd'),to_date('2000/01/10','yyyy/mm/dd'));
+
+insert into service values(1,'cleaning',2);
+
+insert into ServiceMachine (ServiceMachine_ID ,ServiceTicket_ID ,Service_ID )
+        values (1,1,1);
+insert into ServiceMachine (ServiceMachine_ID ,ServiceTicket_ID ,Service_ID )
+        values (2,1,1);  
+insert into ServiceMachine (ServiceMachine_ID ,ServiceTicket_ID ,Service_ID )
+        values (3,3,1);     
+        
+        
+SELECT get_car_service_hours(1,1) SUM_OF_HOURS FROM dual;
