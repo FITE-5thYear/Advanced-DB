@@ -1,0 +1,153 @@
+///first
+
+CREATE OR REPLACE TRIGGER price_during_guarantee
+BEFORE 
+  INSERT OR
+  UPDATE OF Price
+ON PartUsed
+FOR EACH ROW
+
+DECLARE 
+  sale_date SalesInvoice.DateOfInvoice%TYPE;
+  retail_price Part.RetailPrice%TYPE;
+  
+BEGIN
+  SELECT  si.DateOfInvoice INTO sale_date
+  FROM PartUsed pu
+  FULL JOIN ServiceTicket st
+    ON pu.ServiceTicket_ID = st.ServiceTicket_ID
+  INNER JOIN  Car ca
+    ON ca.Car_ID = st.CAR_ID
+  INNER JOIN SalesInvoice si
+    ON si.CAR_ID = ca.CAR_ID
+  WHERE  st.ServiceTicket_ID = :NEW.ServiceTicket_ID;
+  
+  
+  IF(sale_date >= trunc(CURRENT_DATE -365) ) THEN
+    SELECT pa.RetailPrice INTO retail_price
+    FROM PartUsed pu
+    FULL JOIN Part pa
+      ON pu.Part_ID = pa.Part_ID
+    WHERE pa.Part_ID = :NEW.Part_ID;
+    :NEW.Price :=retail_price;
+  END IF;
+
+END;
+
+/////////////////////
+//second
+
+
+create or replace TRIGGER block_updating_exist_value
+BEFORE 
+  UPDATE OF DateReturnedToCustomer
+ON ServiceTicket
+FOR EACH ROW
+DECLARE
+   PRAGMA AUTONOMOUS_TRANSACTION;
+   date_retuned ServiceTicket.DateReturnedToCustomer%TYPE;
+BEGIN
+   SELECT DateReturnedToCustomer  INTO date_retuned
+   FROM ServiceTicket 
+   WHERE ServiceTicket_ID = :NEW.ServiceTicket_ID;  
+  
+   IF (date_retuned  IS NOT NULL ) THEN
+      RAISE_APPLICATION_ERROR(-20101, 'A value for DateReturnedToCustomer is already exist, you can not update it!');
+   END IF;
+END;
+
+///////////////////////
+
+
+
+SELECT DateReturnedToCustomer
+FROM ServiceTicket
+WHERE ServiceTicket_ID =2;
+
+UPDATE ServiceTicket
+SET DATERETURNEDTOCUSTOMER =to_date('2000/01/01','yyyy/mm/dd')
+WHERE SERVICETICKET_ID=2;
+
+
+UPDATE ServiceTicket
+SET DATERETURNEDTOCUSTOMER =to_date('1999/10/10','yyyy/mm/dd')
+WHERE SERVICETICKET_ID=2;
+
+/////////////////////////////
+//third
+
+
+
+
+
+
+/////////////////////////////
+//fourth
+
+CREATE TABLE SalesInvoice_Tracking
+(
+SalesInvoice_Tracking_ID int NOT NULL,
+SalesInvoice_ID int NOT NULL,
+InvoiceNumber int,
+DateOfInvoice Date,
+Car_ID int,
+Customer_ID int,
+SalesPerson_ID int,
+ActionType VARCHAR(1) CONSTRAINT action_check CHECK (ActionType IN('I','U','D')),
+ActionDateTime TIMESTAMP DEFAULT CURRENT_TIMESTAMP ,
+PRIMARY KEY (SalesInvoice_Tracking_ID)
+);
+
+
+CREATE SEQUENCE tracking_seq START WITH 1;
+
+CREATE OR REPLACE TRIGGER tracking_tg 
+BEFORE INSERT ON SalesInvoice_Tracking 
+FOR EACH ROW
+
+BEGIN
+  SELECT tracking_seq.NEXTVAL
+  INTO   :new.SalesInvoice_Tracking_ID
+  FROM   dual;
+END;
+
+
+
+create or replace TRIGGER SalesInvoiceTracking
+BEFORE 
+ INSERT OR UPDATE OR DELETE
+ON SalesInvoice 
+
+FOR EACH ROW
+
+BEGIN
+
+   IF (INSERTING ) THEN
+     INSERT INTO SalesInvoice_Tracking
+     (SalesInvoice_ID,InvoiceNumber,DateOfInvoice,Car_ID,Customer_ID,SalesPerson_ID,ActionType)
+     VALUES(:NEW.SalesInvoice_ID,:NEW.InvoiceNumber,:NEW.DateOfInvoice,:NEW.Car_ID,:NEW.Customer_ID,:NEW.SalesPerson_ID,'I');
+   END IF;
+   
+  IF (UPDATING ) THEN
+     INSERT INTO SalesInvoice_Tracking
+     (SalesInvoice_ID,InvoiceNumber,DateOfInvoice,Car_ID,Customer_ID,SalesPerson_ID,ActionType)
+     VALUES(:OLD.SalesInvoice_ID,:OLD.InvoiceNumber,:OLD.DateOfInvoice,:OLD.Car_ID,:OLD.Customer_ID,:OLD.SalesPerson_ID,'U' );
+   END IF;
+   
+  IF (DELETING ) THEN
+     INSERT INTO SalesInvoice_Tracking
+     (SalesInvoice_ID,InvoiceNumber,DateOfInvoice,Car_ID,Customer_ID,SalesPerson_ID,ActionType)
+     VALUES(:OLD.SalesInvoice_ID,:OLD.InvoiceNumber,:OLD.DateOfInvoice,:OLD.Car_ID,:OLD.Customer_ID,:OLD.SalesPerson_ID,'D');
+   END IF;
+END;
+/////////////////////
+INSERT INTO SalesInvoice VALUES(10,14,to_date('2000/01/01','yyyy/mm/dd'),1,1,1);
+
+SELECT * FROM SalesInvoice_Tracking;
+
+UPDATE SalesInvoice SET CAR_ID=2 WHERE SalesInvoice _ID=9;
+SELECT * FROM SalesInvoice_Tracking;
+////////////////////////
+
+
+/////////////////////////////////////
