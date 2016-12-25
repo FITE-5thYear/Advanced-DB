@@ -108,11 +108,9 @@ BEGIN
           DELETE FROM ServiceMachine 
           WHERE Service_ID =serviceID;
           
-        END IF;
-        SELECT count(*) into count_service_machanic from ServiceMachine where Service_ID =serviceID ;
-        IF (count_service_machanic = 0) THEN
-         DELETE FROM SERVICE 
-          WHERE SERVICENAME =:OLD.SERVICENAME;
+       		--delete from Service 
+		      DELETE FROM SERVICE 
+          WHERE Service_ID =serviceID;
         END IF;
          
           
