@@ -80,6 +80,52 @@ WHERE SERVICETICKET_ID=2;
 
 
 
+CREATE VIEW ServTick_ServMech_view
+AS
+SELECT  ca.SerialNumber , st.ServiceTicketNumber, st.DateReceived, se.ServiceName 
+FROM Car ca
+FULL JOIN  ServiceTicket st
+ON ca.Car_ID=st.Car_ID
+FULL JOIN  ServiceMachine sm
+ON st.ServiceTicket_ID  = sm.ServiceTicket_ID
+FULL JOIN Service se
+ON se.Service_ID=sm.Service_ID;
+
+CREATE OR REPLACE TRIGGER tg_ServTick_ServMech_view
+INSTEAD OF 
+  DELETE
+ON ServTick_ServMech_view
+DECLARE 
+  serviceID Service.Service_ID%TYPE;
+  count_service_machanic INTEGER;
+BEGIN
+        if(:OLD.ServiceName IS NOT NULL) THEN 
+          SELECT SERVICE_ID INTO serviceID
+          FROM Service 
+          WHERE SERVICENAME=:OLD.ServiceName;
+      
+          --delete from ServiceMachinic
+          DELETE FROM ServiceMachine 
+          WHERE Service_ID =serviceID;
+          
+        END IF;
+        SELECT count(*) into count_service_machanic from ServiceMachine where Service_ID =serviceID ;
+        IF (count_service_machanic = 0) THEN
+         DELETE FROM SERVICE 
+          WHERE SERVICENAME =:OLD.SERVICENAME;
+        END IF;
+         
+          
+END;
+------------
+SELECT * FROM ServTick_ServMech_view;
+
+DELETE  FROM  ServTick_ServMech_view WHERE ServiceName='renovating';
+SELECT * FROM ServTick_ServMech_view;
+
+DELETE FROM ServTick_ServMech_view  WHERE ServiceName  ='changing oil';
+SELECT * FROM ServTick_ServMech_view;
+
 
 
 --------------------------------------
@@ -173,7 +219,8 @@ BEGIN
      INSERT INTO  TablesTracking(TableName, Action) VALUES(SYS.dictionary_obj_name,'DROP Table'  );
   END IF;
 END;
-////////////////
+
+------------
 CREATE TABLE Visitor (
   Visitor_ID INT NOT NULL,
   FirstName VARCHAR(50),
@@ -188,38 +235,34 @@ SELECT * FROM TablesTracking;
 --------------------------------------
 --sixth
 
-
-CREATE OR REPLACE FUNCTION get_car_service_hours( carID IN Car.Car_ID%TYPE, serviceID IN Service.Service_ID%TYPE)
+CREATE OR REPLACE FUNCTION get_car_service_hours(carID IN Car.Car_ID%TYPE, serviceID IN Service.Service_ID%TYPE)
   RETURN INTEGER
 IS
-  sum_of_hours INTEGER; 
+  sum_of_hours FLOAT; 
 BEGIN
 
-  SELECT SUM(se.HourlyRate) INTO sum_of_hours
-  FROM Car ca  
-  JOIN ServiceTicket st
-    ON ca.Car_ID = st.Car_ID
+  SELECT SUM(sm.Hours ) INTO sum_of_hours  
+  FROM ServiceTicket st
   JOIN ServiceMachine sm
     ON sm.ServiceTicket_ID = st.ServiceTicket_ID
-  JOIN Service se
-    ON se.Service_ID = sm.Service_ID
-  WHERE ca.Car_ID=carID AND se.Service_ID=serviceID;
+  WHERE st.Car_ID=carID AND sm.Service_ID=serviceID;
   
   RETURN sum_of_hours;
 END;
 
+
 ------------
-insert into ServiceTicket(ServiceTicket_ID,ServiceTicketNumber ,Car_ID ,Customer_ID ,DateReceived ,DateReturnedToCustomer ) 
+insert into ServiceTicket(ServiceTicket_ID, ServiceTicketNumber, Car_ID, Customer_ID ,DateReceived, DateReturnedToCustomer ) 
   values (3,3,1,1,to_date('2000/01/01','yyyy/mm/dd'),to_date('2000/01/10','yyyy/mm/dd'));
 
 insert into service values(1,'cleaning',2);
 
-insert into ServiceMachine (ServiceMachine_ID ,ServiceTicket_ID ,Service_ID )
-        values (1,1,1);
-insert into ServiceMachine (ServiceMachine_ID ,ServiceTicket_ID ,Service_ID )
-        values (2,1,1);  
-insert into ServiceMachine (ServiceMachine_ID ,ServiceTicket_ID ,Service_ID )
-        values (3,3,1);     
+insert into ServiceMachine (ServiceMachine_ID, ServiceTicket_ID, Service_ID, Hours)
+        values (1,1,1,5);
+insert into ServiceMachine (ServiceMachine_ID, ServiceTicket_ID, Service_ID, Hours)
+        values (2,1,1,8);  
+insert into ServiceMachine (ServiceMachine_ID, ServiceTicket_ID, Service_ID, Hours)
+        values (3,3,1,9);     
         
         
 SELECT get_car_service_hours(1,1) SUM_OF_HOURS FROM dual;
